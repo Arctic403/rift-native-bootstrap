@@ -47,6 +47,18 @@ If successful, download the `riftninja-armeabi-v7a-ndk-r27c` artifact containing
 
 Sources: [upstream Ninja release](https://github.com/ninja-build/ninja/releases/tag/v1.13.2), [Debian Ninja source SHA-256 announcement](https://tracker.debian.org/news/1691166/accepted-ninja-build-1132-1-source-into-unstable/), and [Termux native-build architecture guide](https://github.com/termux/termux-packages/wiki/Building-packages).
 
+## G4-E — Android Ninja fixed-job compatibility rebuild
+
+The earlier Ninja 1.13.2 **`--version` passed on the ARM32 phone**, but that does not test job spawning. Upstream Ninja uses a POSIX shell at `/bin/sh` while Android exposes `/system/bin/sh`. A separate, manually triggered CI workflow **Build Android ARM32 Ninja job-spawn candidate** now rebuilds the identical pinned Ninja 1.13.2 source, replacing only the **two exact shell path literals** after a strict source-layout check. The patched source and ELF are SHA-verified independently; all other application and toolchain code stays unchanged.
+
+To run:
+1. Open `Actions → Build Android ARM32 Ninja job-spawn candidate` and run it manually on `main`.
+2. After CI passes, download **`riftninja-job-armeabi-v7a-ndk-r27c`**.
+3. Retain `SHA256SUMS.txt`, `build-info.json`, `PATCH_REPORT.json`, `ELF_REPORT.txt`, `NINJA-LICENSE.txt` and `lib/armeabi-v7a/libriftninja_job.so`.
+4. Upload that ZIP to this bootstrap repo. RiftGit will pull it, verify the new hash and provenance, then prepare an independent Provider v0.6 fixed copy-job test.
+
+**No user-supplied manifest or commands are permitted for the device test.** The planned test runs one fixed Ninja rule that copies a known constant text file into a second private temporary file, checks the output and cleans up. The current provider v0.5, general native runner, compiler operations, Core, Shell and Recovery stay unchanged until a new APK is manually built and approved. This rebuilt Ninja is not a completed toolchain or evidence that arbitrary Ninja jobs are safe.
+
 ## Repository contents
 
 - `native/riftprobe.c`: fixed JNI method returning `RFP1`.

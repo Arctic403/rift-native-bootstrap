@@ -1,0 +1,56 @@
+name: Build Android ARM32 Ninja job-spawn candidate
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ninja-android-shell:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      NDK_VERSION: '27.2.12479018'
+    steps:
+      - name: Checkout isolated Rift Native Bootstrap repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Install exact Android NDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          SDKMANAGER="$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
+          test -x "$SDKMANAGER"
+          "$SDKMANAGER" --sdk_root="$SDK_ROOT" --install "ndk;$NDK_VERSION"
+          NDK_HOME="$SDK_ROOT/ndk/$NDK_VERSION"
+          grep -Fx "Pkg.Revision = $NDK_VERSION" "$NDK_HOME/source.properties"
+          echo "ANDROID_NDK_HOME=$NDK_HOME" >> "$GITHUB_ENV"
+
+      - name: Check source patch and CI scripts
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash -n native/build-arm32-ninja.sh
+          bash -n native/build-arm32-ninja-job.sh
+          python3 -m py_compile native/patch-ninja-android-shell.py
+          python3 -m py_compile native/verify-arm32-ninja-job.py
+
+      - name: Build patched Ninja and verify ARM32 ELF / source provenance
+        shell: bash
+        run: bash native/build-arm32-ninja-job.sh
+
+      - name: Upload verified G4-E patched Ninja artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: riftninja-job-armeabi-v7a-ndk-r27c
+          path: |
+            out/g4e/lib/armeabi-v7a/libriftninja_job.so
+            out/g4e/SHA256SUMS.txt
+            out/g4e/build-info.json
+            out/g4e/ELF_REPORT.txt
+            out/g4e/NINJA-LICENSE.txt
+            out/g4e/PATCH_REPORT.json
+          if-no-files-found: error
+          retention-days: 30
