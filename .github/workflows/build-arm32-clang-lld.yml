@@ -1,0 +1,70 @@
+name: Build Android ARM32 Clang LLD G4-F1
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  cross-compile-llvm:
+    runs-on: ubuntu-24.04
+    # LLVM is substantially larger than Ninja. No automatic retries.
+    timeout-minutes: 150
+    env:
+      NDK_VERSION: '27.2.12479018'
+    steps:
+      - name: Checkout standalone bootstrap sources
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Preflight host capabilities and script syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          df -h .
+          command -v cmake
+          command -v ninja
+          command -v python3
+          command -v curl
+          command -v sha256sum
+          bash -n native/build-arm32-clang-lld.sh
+          python3 -m py_compile native/preflight-llvm-source-tar.py
+          python3 -m py_compile native/verify-arm32-clang-lld.py
+          # Fail rather than fill the runner and return an incomplete artifact.
+          SPACE="$(df -Pk . | awk 'NR==2 {print $4}')"
+          test "$SPACE" -ge 8388608 || {
+            echo "Too little free disk space for experimental LLVM build" >&2
+            exit 1
+          }
+
+      - name: Install exact official Android NDK r27c
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          SDKMANAGER="$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
+          test -x "$SDKMANAGER"
+          "$SDKMANAGER" --sdk_root="$SDK_ROOT" --install "ndk;$NDK_VERSION"
+          NDK_HOME="$SDK_ROOT/ndk/$NDK_VERSION"
+          grep -Fx "Pkg.Revision = $NDK_VERSION" "$NDK_HOME/source.properties"
+          test -x "$NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/clang"
+          echo "ANDROID_NDK_HOME=$NDK_HOME" >> "$GITHUB_ENV"
+
+      - name: Verify LLVM source and cross-build Android ARM32 compiler/linker
+        shell: bash
+        run: bash native/build-arm32-clang-lld.sh
+
+      - name: Upload only verified ARM32 ELF artifacts and source receipts
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: riftclang-lld-armeabi-v7a-llvm21-ndk-r27c
+          path: |
+            out/g4f/lib/armeabi-v7a/libriftclang.so
+            out/g4f/lib/armeabi-v7a/libriftlld.so
+            out/g4f/SHA256SUMS.txt
+            out/g4f/build-info.json
+            out/g4f/ELF_REPORT.txt
+            out/g4f/LLVM-LICENSE.txt
+            out/g4f/LLVM-NOTICE.txt
+          if-no-files-found: error
+          retention-days: 30

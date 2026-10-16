@@ -59,6 +59,18 @@ To run:
 
 **No user-supplied manifest or commands are permitted for the device test.** The planned test runs one fixed Ninja rule that copies a known constant text file into a second private temporary file, checks the output and cleans up. The current provider v0.5, general native runner, compiler operations, Core, Shell and Recovery stay unchanged until a new APK is manually built and approved. This rebuilt Ninja is not a completed toolchain or evidence that arbitrary Ninja jobs are safe.
 
+## G4-F1 — Android-native ARM32 Clang + LLD bootstrap (experimental)
+
+**This is a different, much larger build than Ninja.** The goal is to cross-compile actual **ARM32 Android executables** for LLVM Clang and LLD on a GitHub Ubuntu runner. We specifically do *not* copy host Linux x86-64 NDK `clang` onto the phone. The bootstrap runs two builds of the pinned LLVM **21.1.8** source: host `llvm-tblgen`/`clang-tblgen`, followed by Android `armeabi-v7a` Clang and LLD using official NDK **r27c** and an ARM-only backend.
+
+- Run **Actions → Build Android ARM32 Clang LLD G4-F1 → Run workflow** on `main` when instructed.
+- Source: upstream `llvm-project-21.1.8.src.tar.xz`, SHA-256 `4633a23617fa31a3ea51242586ea7fb1da7140e426bd62fc164261fe036aa142`. The checksum matches the published Termux libllvm source recipe, but **no Termux binaries** are copied.
+- The GitHub runner must have at least **8 GiB free** before starting; the single build is capped at 150 minutes, uses only two parallel compiler jobs, and fails on missing outputs or unexpected ABI/dependencies.
+- Build artifact `riftclang-lld-armeabi-v7a-llvm21-ndk-r27c` contains (if successful) **`libriftclang.so` and `libriftlld.so`**—Android ARM32 PIE executables named as `lib*.so` for potential APK installer extraction—plus SHA-256, ELF, provenance, and LLVM license reports. **No Android ELF is executed on the GitHub runner.**
+- LLVM/Clang licensing is **Apache-2.0 WITH LLVM-exception**, with the upstream license file included.
+- Important: the first successful CI run would **only prove that the binaries were compiled and statically verified**. Their usability on-device, the Clang builtin resource headers, sysroot/CRT layout, correct linker resolution, compiler memory use, signing, and running `hello.c` will each need further tests. General native builds, the installed Native Build Provider v0.6, RiftOS Core/Shell and Recovery remain unchanged.
+- The LLVM artifact may be too large to upload as a normal GitHub repository file. **Check the size and CI receipts before trying the prior RiftGit ZIP handoff.** We will agree on a supported transfer route before moving the actual toolchain to the phone.
+
 ## Repository contents
 
 - `native/riftprobe.c`: fixed JNI method returning `RFP1`.
