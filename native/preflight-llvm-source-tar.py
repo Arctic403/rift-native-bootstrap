@@ -34,8 +34,8 @@ with tarfile.open(sys.argv[1], "r:xz") as archive:
             if member.size > 80_000_000:
                 raise SystemExit("unexpectedly large LLVM source file: " + name)
             size += member.size
-            if size > 1_800_000_000:
-                raise SystemExit("LLVM source exceeds 1.8GB uncompressed bound")
+            if size > 4 * 1024 * 1024 * 1024:
+                raise SystemExit("LLVM source exceeds 4 GiB uncompressed bound")
         elif member.issym():
             if posixpath.isabs(member.linkname):
                 raise SystemExit("absolute symlink in LLVM source: " + name)
