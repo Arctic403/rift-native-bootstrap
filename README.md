@@ -31,6 +31,22 @@ The file is a **fixed-output Android ARM32 PIE executable**, despite its `lib*.s
 
 The CI workflow verifies **ELF32 ARM, ET_DYN PIE, executable entry point, Android interpreter `/system/bin/linker`, fixed marker, `DT_NEEDED` library dependencies, NDK r27c revision and SHA-256**. It does not run the ELF on Ubuntu and does not prove that the Android app will be allowed to execute it. The provider’s targetSdk 35 stays unchanged. Do not install, execute or enable compiler operations until the separate device proof is validated.
 
+## G4-D — ARM32 Ninja compiler-toolchain bootstrap (CI only)
+
+Run the isolated **Build Android ARM32 Ninja G4-D** workflow manually on the repository's default branch. It downloads **Ninja 1.13.2 source** from the Debian source archive, checks the published SHA-256 `974d6b2f4eeefa25625d34da3cb36bdcebe7fbce40f4c16ac0835fd1c0cbae17` **before extraction**, and cross-builds with Android NDK r27c for **`armeabi-v7a`, Android API 28**. The source archive is used as a pinned upstream source snapshot, not a prebuilt Termux package.
+
+We are intentionally trying API 28 to avoid Termux's historic **libandroid-spawn** dependency for older Android API targets. This is **experimental**; CI will fail if linker/runtime dependencies aren't compatible. The NDK's **static C++ runtime** is requested; the verifier refuses unreviewed dynamic dependencies.
+
+If successful, download the `riftninja-armeabi-v7a-ndk-r27c` artifact containing:
+- `lib/armeabi-v7a/libriftninja.so` — actually an **ELF32 ARM PIE executable**, named as a `lib*.so` only for Android package manager extraction.
+- `SHA256SUMS.txt`, `build-info.json`, `ELF_REPORT.txt`, and `NINJA-LICENSE.txt` — reproducibility/provenance and redistribution receipts.
+
+**Do not launch the compiled Ninja binary on the CI host and do not install it yet.** When you upload the artifact ZIP to this repository, the RiftOS MCP will pull it with RiftGit, verify hashes and architecture, and prepare a distinct Native Build Provider candidate with a **single fixed `--version` test**, not a general native build runner.
+
+**Limit of proof:** Ninja's `--version` does not prove subprocess/job spawning. A separate approved, deterministic local build test and permissions/source confinement review must happen before allowing any real Ninja builds. Clang, LLD, CMake and sysroot are not installed by G4-D.
+
+Sources: [upstream Ninja release](https://github.com/ninja-build/ninja/releases/tag/v1.13.2), [Debian Ninja source SHA-256 announcement](https://tracker.debian.org/news/1691166/accepted-ninja-build-1132-1-source-into-unstable/), and [Termux native-build architecture guide](https://github.com/termux/termux-packages/wiki/Building-packages).
+
 ## Repository contents
 
 - `native/riftprobe.c`: fixed JNI method returning `RFP1`.

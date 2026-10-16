@@ -1,0 +1,57 @@
+name: Build Android ARM32 Ninja G4-D
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ninja-arm32:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    env:
+      NDK_VERSION: '27.2.12479018' # Official Android NDK r27c
+    steps:
+      - name: Checkout isolated bootstrap repo
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Install and check pinned Android NDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          SDKMANAGER="$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
+          test -x "$SDKMANAGER"
+          "$SDKMANAGER" --sdk_root="$SDK_ROOT" --install "ndk;$NDK_VERSION"
+          NDK_HOME="$SDK_ROOT/ndk/$NDK_VERSION"
+          test -f "$NDK_HOME/source.properties"
+          grep -Fx "Pkg.Revision = $NDK_VERSION" "$NDK_HOME/source.properties"
+          test -x "$NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/clang++"
+          echo "ANDROID_NDK_HOME=$NDK_HOME" >> "$GITHUB_ENV"
+
+      - name: Validate build scripts and cross-build source-pinned Ninja
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash -n native/build-arm32-ninja.sh
+          python3 -m py_compile native/check-ninja-source-archive.py
+          python3 -m py_compile native/verify-arm32-ninja.py
+          bash native/build-arm32-ninja.sh
+
+      - name: Verify Android ARM32 ELF and source SHA-256
+        shell: bash
+        run: python3 native/verify-arm32-ninja.py
+
+      - name: Publish G4-D proof artifact (NO Android execution yet)
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: riftninja-armeabi-v7a-ndk-r27c
+          path: |
+            out/g4d/lib/armeabi-v7a/libriftninja.so
+            out/g4d/SHA256SUMS.txt
+            out/g4d/build-info.json
+            out/g4d/ELF_REPORT.txt
+            out/g4d/NINJA-LICENSE.txt
+          if-no-files-found: error
+          retention-days: 30
