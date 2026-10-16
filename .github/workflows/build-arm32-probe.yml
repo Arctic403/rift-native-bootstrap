@@ -1,0 +1,50 @@
+name: Build Android ARM32 JNI probe
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-arm32:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      NDK_VERSION: '27.2.12479018' # Android NDK r27c
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Install exact Android NDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          SDKMANAGER="$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
+          test -x "$SDKMANAGER"
+          "$SDKMANAGER" --sdk_root="$SDK_ROOT" --install "ndk;$NDK_VERSION"
+          NDK_HOME="$SDK_ROOT/ndk/$NDK_VERSION"
+          test -x "$NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/clang"
+          grep -Fx "Pkg.Revision = $NDK_VERSION" "$NDK_HOME/source.properties"
+          echo "ANDROID_NDK_HOME=$NDK_HOME" >> "$GITHUB_ENV"
+
+      - name: Cross-compile fixed JNI source for Android ARM32
+        shell: bash
+        run: bash native/build-arm32-probe.sh
+
+      - name: Verify ELF ABI, JNI export, runtime dependencies and SHA-256
+        shell: bash
+        run: python3 native/verify-arm32-probe.py
+
+      - name: Upload verified ARM32 bootstrap artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: riftprobe-armeabi-v7a-ndk-r27c
+          path: |
+            out/lib/armeabi-v7a/libriftprobe.so
+            out/SHA256SUMS.txt
+            out/build-info.json
+            out/ELF_REPORT.txt
+          if-no-files-found: error
+          retention-days: 30
