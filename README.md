@@ -1,5 +1,28 @@
 # Rift Native Bootstrap
 
+## G4-F5A — isolated ARM32 NDK sysroot + Clang 21 resource headers (source only)
+
+Following G4-F4B's **device-proven fixed C -> ARM32 Clang/LLD PIE -> APK execution
+PASS**, the next stage is a conventional `#include <stdio.h>` compile using
+Android's C headers/libc/CRT. The G4-F1 LLVM binary archive did **not**
+include an Android sysroot or Clang built-in/resource headers.
+
+A separate, manual CI workflow was prepared:
+`.github/workflows/export-arm32-ndk-sysroot-g4f5a.yml`.
+It packages **only** the official, exact **NDK r27c (27.2.12479018) ARM32
+API28 sysroot/header/CRT subset** and Clang 21.1.8 resource headers from the
+SHA-pinned LLVM 21.1.8 source. It preserves provenance/license metadata and
+creates `riftndk-sysroot-arm32-api28-r27c-llvm21.zip` with an independently
+checked transfer receipt. Inputs are subject to bounded file/path validation
+and a fixture regression test. It does not compile/execute on-device,
+modify RiftOS, sign/install an APK, or enable generic build commands.
+
+**NOT YET PUSHED, RUN, OR DEVICE QUALIFIED.** Commit/push the three new
+bootstrap files using RiftGit, then manually trigger **Export Android ARM32
+API28 NDK sysroot G4-F5A**. Download the artifact only after CI is green
+and import it with Phone File Importer. Full handoff:
+`/D:/Workspace/NativeBuildTools/toolchains/G4-F5A-ANDROID-NDK-RESOURCE-BOOTSTRAP-20261016.md`.
+
 A **standalone, manually triggered** GitHub Actions project for building RiftOS's first Android **ARM32 (`armeabi-v7a`)** JNI test library. This bootstrap is unrelated to the RiftOS Core, Shell, Recovery or APK-signing process.
 
 ## Run the one-time build
